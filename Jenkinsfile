@@ -1,40 +1,60 @@
+
 pipeline {
     agent any
 
-    options {
-        timestamps()
-        timeout(time: 10, unit: 'MINUTES')
+    parameters {
+        string(
+            name: 'APP_VERSION',
+            defaultValue: '1.0.0',
+            description: 'Application version to build'
+        )
+
+        choice(
+            name: 'DEPLOY_ENV',
+            choices: ['dev', 'staging', 'production'],
+            description: 'Target environment'
+        )
+
+        booleanParam(
+            name: 'RUN_TESTS',
+            defaultValue: true,
+            description: 'Run application tests'
+        )
     }
 
     stages {
         stage('Checkout') {
             steps {
-                echo "Checking out source code"
                 checkout scm
-                sh 'git log -1 --oneline'
+                echo 'Source code checked out successfully'
             }
         }
 
         stage('Build') {
             steps {
+                echo "Building version: ${params.APP_VERSION}"
+                echo "Target environment: ${params.DEPLOY_ENV}"
+
                 sh '''
-                    echo "Building application..."
-                    test -f index.html
                     mkdir -p output
-                    cp index.html output/
+                    echo "$APP_VERSION" > output/version.txt
+                    echo "Environment: $DEPLOY_ENV" >> output/version.txt
                 '''
             }
         }
 
         stage('Test') {
+            when {
+                expression { params.RUN_TESTS }
+            }
             steps {
                 sh 'bash test.sh'
             }
         }
 
-        stage('Archive') {
+        stage('Package') {
             steps {
-                archiveArtifacts artifacts: 'output/index.html',
+                archiveArtifacts artifacts: 'output/*',
                                  fingerprint: true
             }
         }
@@ -42,10 +62,12 @@ pipeline {
 
     post {
         success {
-            echo 'Pipeline completed successfully.'
+            echo 'Pipeline completed successfully!'
         }
         failure {
-            echo 'Pipeline failed. Check the console output.'
+            echo 'Pipeline failed. Check Console Output.'
         }
     }
 }
+
+   
